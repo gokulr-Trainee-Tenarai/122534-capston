@@ -1,0 +1,8 @@
+**/.git
+**/.github
+**/.env
+**/.env.*
+**/tmp
+**/dist
+**/bin
+**/*.md

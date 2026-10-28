@@ -1,0 +1,119 @@
+x-app-environment: &app-environment
+  APP_ENV: development
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_NAME: orderdb
+  DB_USER: orderuser
+  DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+  DB_SSLMODE: disable
+  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+  CONSUL_HTTP_ADDR: http://consul:8500
+
+services:
+  consul:
+    image: hashicorp/consul:1.20
+    command: agent -dev -client=0.0.0.0 -ui
+    ports:
+      - "8500:8500"
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: orderdb
+      POSTGRES_USER: orderuser
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orderuser -d orderdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  auth-service:
+    build: .
+    entrypoint: ["/app/auth-service"]
+    environment:
+      <<: *app-environment
+      APP_PORT: 8083
+      SERVICE_ADDRESS: auth-service
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:?Set BOOTSTRAP_ADMIN_USERNAME in .env}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD in .env}
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    restart: unless-stopped
+
+  product-service:
+    build: .
+    entrypoint: ["/app/product-service"]
+    environment:
+      <<: *app-environment
+      APP_PORT: 8082
+      SERVICE_ADDRESS: product-service
+      PRODUCT_BOOTSTRAP_ID: ${PRODUCT_BOOTSTRAP_ID:-501}
+      PRODUCT_BOOTSTRAP_NAME: ${PRODUCT_BOOTSTRAP_NAME:-Sample Product}
+      PRODUCT_BOOTSTRAP_PRICE: ${PRODUCT_BOOTSTRAP_PRICE:-12.50}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    restart: unless-stopped
+
+  order-service:
+    build: .
+    entrypoint: ["/app/order-service"]
+    environment:
+      <<: *app-environment
+      APP_PORT: 8081
+      SERVICE_ADDRESS: order-service
+      PRODUCT_SERVICE_NAME: product-service
+      PRODUCT_TIMEOUT_MS: ${PRODUCT_TIMEOUT_MS:-2000}
+      PRODUCT_RETRIES: ${PRODUCT_RETRIES:-2}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+    restart: unless-stopped
+
+  api-gateway:
+    build: .
+    entrypoint: ["/app/api-gateway"]
+    environment:
+      <<: *app-environment
+      APP_PORT: 8080
+      SERVICE_ADDRESS: api-gateway
+      ORDER_SERVICE_NAME: order-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      consul:
+        condition: service_healthy
+      order-service:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

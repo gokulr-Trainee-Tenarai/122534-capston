@@ -1,0 +1,22 @@
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Logs
+*.log
+
+# Local Docker data
+postgres-data/

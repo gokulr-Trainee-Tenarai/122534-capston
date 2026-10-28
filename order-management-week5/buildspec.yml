@@ -1,0 +1,27 @@
+version: 0.2
+
+env:
+  variables:
+    GOCACHE: /tmp/go-build-cache
+
+phases:
+  pre_build:
+    commands:
+      - cd "$CODEBUILD_SRC_DIR/CapeStone_Project_sac/order-management-week5" && go mod download
+
+  build:
+    commands:
+      - cd "$CODEBUILD_SRC_DIR/CapeStone_Project_sac/order-management-week5" && go test -v ./...
+      - cd "$CODEBUILD_SRC_DIR/CapeStone_Project_sac/order-management-week5" && CGO_ENABLED=0 go build -trimpath -o application ./cmd/api-gateway
+      - cd "$CODEBUILD_SRC_DIR/CapeStone_Project_sac/order-management-week5" && docker build -t order-management:latest .
+
+  post_build:
+    commands:
+      - cd "$CODEBUILD_SRC_DIR/CapeStone_Project_sac/order-management-week5" && docker save order-management:latest -o order-management-image.tar
+
+artifacts:
+  base-directory: CapeStone_Project_sac/order-management-week5
+  files:
+    - application
+    - Procfile
+    - order-management-image.tar

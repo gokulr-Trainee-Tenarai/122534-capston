@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order Management GraphiQL</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/graphiql@3.8.3/graphiql.min.css"
+    />
+    <style>
+      html,
+      body,
+      #graphiql {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        font-family: sans-serif;
+      }
+
+      #toolbar {
+        align-items: center;
+        background: #f5f5f5;
+        border-bottom: 1px solid #d5d5d5;
+        box-sizing: border-box;
+        display: flex;
+        gap: 0.75rem;
+        min-height: 3.5rem;
+        padding: 0.5rem 1rem;
+      }
+
+      #toolbar label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      #access-token {
+        flex: 1;
+        max-width: 48rem;
+        padding: 0.45rem;
+      }
+
+      #token-note {
+        color: #555;
+        font-size: 0.8rem;
+      }
+
+      #graphiql {
+        height: calc(100% - 3.5rem);
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.3.1",
+          "react-dom": "https://esm.sh/react-dom@18.3.1?external=react",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.1/client?external=react",
+          "graphql": "https://esm.sh/graphql@16.9.0"
+        }
+      }
+    </script>
+    <script type="module">
+      import React from "react";
+      import { createRoot } from "react-dom/client";
+      import { GraphiQL } from "https://esm.sh/graphiql@3.8.3?bundle&external=react,react-dom,graphql";
+
+      const fetcher = async (graphQLParams) => {
+        const headers = { "Content-Type": "application/json" };
+        const token = document.getElementById("access-token").value.trim();
+        if (token) {
+          headers.Authorization = token.startsWith("Bearer ")
+            ? token
+            : "Bearer " + token;
+        }
+
+        const response = await fetch("/graphql", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(graphQLParams),
+        });
+        const result = await response.json();
+        if (!response.ok && !result.errors) {
+          throw new Error("GraphQL request failed with HTTP " + response.status);
+        }
+        return result;
+      };
+
+      const defaultQuery = `query {
+  orders(limit: 10, offset: 0) {
+    id
+    customerId
+    productId
+    quantity
+    unitPrice
+    totalAmount
+    status
+    createdAt
+    updatedAt
+  }
+}`;
+
+      createRoot(document.getElementById("graphiql")).render(
+        React.createElement(GraphiQL, { fetcher, defaultQuery }),
+      );
+    </script>
+  </head>
+  <body>
+    <div id="toolbar">
+      <label for="access-token">JWT access token</label>
+      <input
+        id="access-token"
+        type="password"
+        autocomplete="off"
+        placeholder="Paste the accessToken from /auth/login"
+      />
+      <span id="token-note">Used for requests; not saved by this page.</span>
+    </div>
+    <div id="graphiql"></div>
+  </body>
+</html>
