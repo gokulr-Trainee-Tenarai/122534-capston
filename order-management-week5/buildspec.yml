@@ -7,7 +7,7 @@ env:
 phases:
   pre_build:
     commands:
-      - cd "$CODEBUILD_SRC_DIR/CapeStone_Project_Gokulc/order-management-week5" && go mod download
+      - cd "$CODEBUILD_SRC_DIR/CapeStone_Project_Gokul/order-management-week5" && go mod download
 
   build:
     commands:
